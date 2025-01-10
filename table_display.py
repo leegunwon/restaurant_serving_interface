@@ -1,7 +1,6 @@
 from PySide2.QtWidgets import (QApplication, QTreeWidget, QTreeWidgetItem, QMainWindow, QPushButton, QSpinBox, QMessageBox)
-from PySide2.QtUiTools import QUiLoader
-from PySide2.QtCore import QFile, QCoreApplication, Qt
-import os
+from PySide2.QtCore import QCoreApplication, Qt
+from table_display_layout import Ui_MainWindow  # 변환된 UI 클래스 가져오기
 
 
 class MainWindow(QMainWindow):
@@ -11,60 +10,40 @@ class MainWindow(QMainWindow):
         # 애플리케이션 속성 설정 (QSocketNotifier 경고 방지)
         QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
 
-        # UI 파일 경로 확인
-        ui_file_path = "table.ui"  # UI 파일 경로
-        if not os.path.exists(ui_file_path):
-            raise FileNotFoundError(f"UI 파일을 찾을 수 없습니다: {ui_file_path}")
-
-        # UI 파일 로드
-        ui_file = QFile(ui_file_path)
-        ui_file.open(QFile.ReadOnly)
-        loader = QUiLoader()
-        self.ui = loader.load(ui_file, self)
-        ui_file.close()
+        # 변환된 Python UI 클래스 초기화
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
 
         # TreeWidget 가져오기
-        self.tree_widget = self.ui.findChild(QTreeWidget, "treeWidget")  # Object Name으로 TreeWidget 가져오기
+        self.tree_widget = self.ui.treeWidget
 
         # 버튼 이벤트 연결
         self.connect_buttons()
 
     def connect_buttons(self):
         """버튼 클릭 이벤트 설정"""
-        self.ui.findChild(QPushButton, "pushButton_3").clicked.connect(
-            lambda: self.add_to_tree("Tomato Pasta"))
-        self.ui.findChild(QPushButton, "pushButton_4").clicked.connect(
-            lambda: self.add_to_tree("Cream Pasta"))
-        self.ui.findChild(QPushButton, "pushButton_5").clicked.connect(
-            lambda: self.add_to_tree("Vongole Pasta"))
+        self.ui.pushButton_3.clicked.connect(lambda: self.add_to_tree("Tomato Pasta"))
+        self.ui.pushButton_4.clicked.connect(lambda: self.add_to_tree("Cream Pasta"))
+        self.ui.pushButton_5.clicked.connect(lambda: self.add_to_tree("Vongole Pasta"))
 
-        self.ui.findChild(QPushButton, "pushButton_7").clicked.connect(
-            lambda: self.add_to_tree("Combination Pizza"))
-        self.ui.findChild(QPushButton, "pushButton_8").clicked.connect(
-            lambda: self.add_to_tree("Pepperoni Pizza"))
-        self.ui.findChild(QPushButton, "pushButton_9").clicked.connect(
-            lambda: self.add_to_tree("Hawaiian Pizza"))
+        self.ui.pushButton_7.clicked.connect(lambda: self.add_to_tree("Combination Pizza"))
+        self.ui.pushButton_8.clicked.connect(lambda: self.add_to_tree("Pepperoni Pizza"))
+        self.ui.pushButton_9.clicked.connect(lambda: self.add_to_tree("Hawaiian Pizza"))
 
-        self.ui.findChild(QPushButton, "pushButton_10").clicked.connect(
-            lambda: self.add_to_tree("Tenderloin Steak"))
-        self.ui.findChild(QPushButton, "pushButton_11").clicked.connect(
-            lambda: self.add_to_tree("Sirloin Steak"))
-        self.ui.findChild(QPushButton, "pushButton_12").clicked.connect(
-            lambda: self.add_to_tree("T-bone Steak"))
+        self.ui.pushButton_10.clicked.connect(lambda: self.add_to_tree("Tenderloin Steak"))
+        self.ui.pushButton_11.clicked.connect(lambda: self.add_to_tree("Sirloin Steak"))
+        self.ui.pushButton_12.clicked.connect(lambda: self.add_to_tree("T-bone Steak"))
 
-        self.ui.findChild(QPushButton, "pushButton_13").clicked.connect(
-            lambda: self.add_to_tree("Coke"))
-        self.ui.findChild(QPushButton, "pushButton_14").clicked.connect(
-            lambda: self.add_to_tree("Cider"))
-        self.ui.findChild(QPushButton, "pushButton_15").clicked.connect(
-            lambda: self.add_to_tree("Blueberry Ade"))
+        self.ui.pushButton_13.clicked.connect(lambda: self.add_to_tree("Coke"))
+        self.ui.pushButton_14.clicked.connect(lambda: self.add_to_tree("Cider"))
+        self.ui.pushButton_15.clicked.connect(lambda: self.add_to_tree("Blueberry Ade"))
 
         # Reset 버튼 연결
-        self.ui.findChild(QPushButton, "pushButton_2").clicked.connect(self.reset_tree_widget)
-        self.ui.findChild(QPushButton, "pushButton_6").clicked.connect(self.remove_selected_item)
+        self.ui.pushButton_2.clicked.connect(self.reset_tree_widget)
+        self.ui.pushButton_6.clicked.connect(self.remove_selected_item)
 
         # 주문 버튼 연결
-        self.ui.findChild(QPushButton, "pushButton").clicked.connect(self.show_order_summary)
+        self.ui.pushButton.clicked.connect(self.show_order_summary)
 
     def add_to_tree(self, item_name):
         """TreeWidget에 아이템 추가"""
@@ -127,5 +106,5 @@ class MainWindow(QMainWindow):
 if __name__ == "__main__":
     app = QApplication([])
     window = MainWindow()
-    window.ui.show()
+    window.show()
     app.exec_()
