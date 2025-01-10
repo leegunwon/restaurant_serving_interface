@@ -1,6 +1,7 @@
 from PySide2.QtWidgets import QTreeWidgetItem, QApplication, QMainWindow
 from PySide2.QtCore import QTimer
 from kitchen_display_layout import Ui_MainWindow
+from database_interface import initialize_cache
 import sys
 import rclpy
 from rclpy.node import Node
@@ -16,24 +17,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # ROS 2 초기화
         rclpy.init()
         self.node = Node("kitchen_display")
-
+        self.menu_dict, self.cancel_dict = initialize_cache()
         # Logger 초기화
         self.logger = logging.getLogger("kitchen_display")
         logging.basicConfig(level=logging.INFO)
 
-        # 메뉴 딕셔너리 초기화
-        self.menu_map = {
-            1: "Pizza",
-            2: "Pasta",
-            3: "Coke"
-        }
-
-        # 메뉴 조리 시간 초기화
-        self.menu_cooking_time_map = {
-            "Pizza": 3,
-            "Pasta": 5,
-            "Coke": 0
-        }
+        
 
         # Publisher 초기화
         self.status_publisher = self.node.create_publisher(Int32MultiArray, "/order_status", 10)
