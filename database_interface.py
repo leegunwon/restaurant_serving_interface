@@ -8,7 +8,6 @@ DB_CONFIG = {
     'database': 'RestaurantSystem'
 }
 
-
 def fetch_menu_as_dict():
     """Menu 테이블에서 데이터를 가져와 딕셔너리로 반환"""
     try:
@@ -36,6 +35,12 @@ def fetch_menu_as_dict():
     except pymysql.MySQLError as e:
         print(f"Error fetching menu from DB: {e}")
         return {}
+
+def display_menu(menu_cache):
+    """캐싱된 메뉴 데이터를 출력"""
+    print("Menu List:")
+    for menu_id, item in menu_cache.items():
+        print(f"ID: {menu_id}, Name: {item['name']}, Price: {item['price']}, Cooking Time: {item['cooking_time']} mins")
 
 
 def fetch_cancel_as_dict():
@@ -77,7 +82,6 @@ def get_max_order_id():
     except pymysql.MySQLError as e:
         print(f"Error fetching max order_id: {e}")
         return None
-    
     
     
     
@@ -144,18 +148,9 @@ def initialize_cache():
     """프로그램 시작 시 한 번 메뉴 데이터를 캐싱"""
     menu_cache = fetch_menu_as_dict()
     cancel_cache = fetch_cancel_as_dict()
-    return menu_cache, cancel_cache
     print("Menu cache initialized.")
-
-
-# 4. 메뉴 출력
-def display_menu():
-    """캐싱된 메뉴 데이터를 출력"""
-
-    print("Menu List:")
-    for item in menu_cache:
-        print(f"ID: {item[0]}, Name: {item[1]}, Price: {item[2]}, Cooking Time: {item[3]} mins")
-
+    return menu_cache, cancel_cache
+    
 
 
 # 공통 함수: MySQL 실행
@@ -275,7 +270,7 @@ if __name__ == "__main__":
 
         if choice == "1":
             # 메뉴 출력
-            display_menu()
+            display_menu(menu_cache)
         elif choice == "2":
             # 주문 데이터 삽입
             data_insertion_interface()
