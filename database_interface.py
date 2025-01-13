@@ -4,9 +4,127 @@ import pymysql
 DB_CONFIG = {
     'host': 'localhost',
     'user': 'root',
-    'password': 'your_password',  # MySQL 비밀번호를 입력하세요
-    'database': 'RestaurantSystem'
+    'password': 'your_password',  # MySQL 비밀번호 입력
+    'database': 'RestaurantSystem'  # 데이터베이스 이름
 }
+
+def create_tables():
+    try:
+        connection = pymysql.connect(
+            host=DB_CONFIG['host'],
+            user=DB_CONFIG['user'],
+            password=DB_CONFIG['password'],
+            database=DB_CONFIG['database']
+        )
+        cursor = connection.cursor()
+
+        # 테이블 생성 쿼리
+        table_queries = [
+            """
+            CREATE TABLE IF NOT EXISTS Menu (
+                menu_id INT PRIMARY KEY AUTO_INCREMENT,
+                menu_name VARCHAR(255) NOT NULL,
+                price INT NOT NULL,
+                cooking_time INT NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS Cancel (
+                cancel_id INT PRIMARY KEY AUTO_INCREMENT,
+                reason VARCHAR(255) NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS Review (
+                customer_id INT PRIMARY KEY,
+                rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+                review_comment TEXT
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS TableASalesRecords (
+                customer_id INT NOT NULL,
+                menu_item VARCHAR(255) NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS TableBSalesRecords (
+                customer_id INT NOT NULL,
+                menu_item VARCHAR(255) NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS TableCSalesRecords (
+                customer_id INT NOT NULL,
+                menu_item VARCHAR(255) NOT NULL
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS Orders (
+                customer_id INT NOT NULL,
+                order_id INT PRIMARY KEY,
+                menu_id INT NOT NULL,
+                quantity INT NOT NULL,
+                cancel_id INT,
+                order_time DATETIME NOT NULL,
+                FOREIGN KEY (menu_id) REFERENCES Menu(menu_id),
+                FOREIGN KEY (cancel_id) REFERENCES Cancel(cancel_id)
+            );
+            """,
+        ]
+
+        # 쿼리 실행
+        for query in table_queries:
+            cursor.execute(query)
+            print("Table created successfully.")
+
+        connection.commit()
+        print("All tables created successfully.")
+    except pymysql.MySQLError as e:
+        print(f"Error: {e}")
+    finally:
+        if connection:
+            connection.close()
+            print("Connection closed.")
+
+# 메뉴 데이터를 MySQL에 저장하는 함수
+def save_menu_data_to_db(menu_data):
+    """
+    menu_data 딕셔너리를 Menu 테이블에 삽입합니다.
+
+    :param menu_data: 메뉴 정보를 담은 딕셔너리
+    """
+    try:
+        # MySQL 데이터베이스 연결
+        connection = pymysql.connect(**DB_CONFIG)
+        cursor = connection.cursor()
+
+        # SQL 쿼리: 데이터 삽입
+        insert_query = """
+            INSERT INTO Menu (menu_id, menu_name, price, cooking_time)
+            VALUES (%s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                menu_name = VALUES(menu_name),
+                price = VALUES(price),
+                cooking_time = VALUES(cooking_time);
+        """
+
+        # 데이터를 하나씩 삽입
+        for menu_id, menu_info in menu_data.items():
+            cursor.execute(
+                insert_query,
+                (menu_id, menu_info['menu_name'], menu_info['price'], menu_info['cooking_time'])
+            )
+
+        # 변경 사항 저장
+        connection.commit()
+        print("Menu data successfully saved to the database.")
+
+    except pymysql.MySQLError as e:
+        print(f"Error saving menu data to the database: {e}")
+    finally:
+        if connection:
+            connection.close()
 
 def fetch_menu_as_dict():
     """Menu 테이블에서 데이터를 가져와 딕셔너리로 반환"""
@@ -36,13 +154,6 @@ def fetch_menu_as_dict():
         print(f"Error fetching menu from DB: {e}")
         return {}
 
-def display_menu(menu_cache):
-    """캐싱된 메뉴 데이터를 출력"""
-    print("Menu List:")
-    for menu_id, item in menu_cache.items():
-        print(f"ID: {menu_id}, Name: {item['name']}, Price: {item['price']}, Cooking Time: {item['cooking_time']} mins")
-
-
 def fetch_cancel_as_dict():
     """Cancel 테이블에서 데이터를 가져와 딕셔너리로 반환"""
     try:
@@ -63,6 +174,14 @@ def fetch_cancel_as_dict():
         print(f"Error fetching cancel data from DB: {e}")
         return {}
     
+    # 데이터 삽입 함수
+def insert_cancel_reason(reason):
+    connection = pymysql.connect(**DB_CONFIG)
+    query = "INSERT INTO Cancel (reason) VALUES (%s)"
+    cursor = connection.cursor()
+    cursor.execute(query, (reason,))
+    connection.commit()
+    print(f"취소 사유 추가 완료: {reason}")
     
 # MySQL 유틸리티 함수
 def get_max_order_id():
@@ -167,124 +286,27 @@ def execute_query(query, params):
         print(f"Error executing query: {e}")
 
 
-# 1. Menu 테이블에 데이터 삽입
-def insert_menu(menu_name, price, cooking_time):
-    query = """
-        INSERT INTO Menu (menu_name, price, cooking_time)
-        VALUES (%s, %s, %s)
-    """
-    execute_query(query, (menu_name, price, cooking_time))
-
-
-# 2. Cancel 테이블에 데이터 삽입
-def insert_cancel(cancel_id, reason):
-    query = """
-        INSERT INTO Cancel (cancel_id, reason)
-        VALUES (%s, %s)
-    """
-    execute_query(query, (cancel_id, reason))
-
-
-# 3. Orders 테이블에 데이터 삽입
-def insert_order(customer_id, order_id, menu_id, quantity, cancel_id=None):
-    query = """
-        INSERT INTO Orders (customer_id, order_id, menu_id, quantity, cancel_id)
-        VALUES (%s, %s, %s, %s, %s)
-    """
-    execute_query(query, (customer_id, order_id, menu_id, quantity, cancel_id))
-
-
-# 4. Review 테이블에 데이터 삽입
-def insert_review(customer_id, rating, review_comment):
-    query = """
-        INSERT INTO Review (customer_id, rating, review_comment)
-        VALUES (%s, %s, %s)
-    """
-    execute_query(query, (customer_id, rating, review_comment))
-
-
-# 5. SalesRecords 테이블에 데이터 삽입
-def insert_sales_record(customer_id, menu_item):
-    query = """
-        INSERT INTO SalesRecords (customer_id, menu_item)
-        VALUES (%s, %s)
-    """
-    execute_query(query, (customer_id, menu_item))
-
-
-# 데이터 삽입 인터페이스
-def data_insertion_interface():
-    while True:
-        print("\nSelect a table to insert data:")
-        print("1. Menu")
-        print("2. Cancel")
-        print("3. Orders")
-        print("4. Review")
-        print("5. SalesRecords")
-        print("6. Exit")
-
-        choice = input("Enter your choice: ").strip()
-        if choice == "1":
-            menu_name = input("Enter Menu Name: ").strip()
-            price = int(input("Enter Price: "))
-            cooking_time = int(input("Enter Cooking Time (in mins): "))
-            insert_menu(menu_name, price, cooking_time)
-        elif choice == "2":
-            cancel_id = int(input("Enter Cancel ID: "))
-            reason = input("Enter Cancel Reason: ").strip()
-            insert_cancel(cancel_id, reason)
-        elif choice == "3":
-            customer_id = int(input("Enter Customer ID: "))
-            order_id = int(input("Enter Order ID: "))
-            menu_id = int(input("Enter Menu ID: "))
-            quantity = int(input("Enter Quantity: "))
-            cancel_id = input("Enter Cancel ID (or press Enter if none): ")
-            cancel_id = int(cancel_id) if cancel_id else None
-            insert_order(customer_id, order_id, menu_id, quantity, cancel_id)
-        elif choice == "4":
-            customer_id = int(input("Enter Customer ID: "))
-            rating = int(input("Enter Rating (1-5): "))
-            review_comment = input("Enter Review Comment: ").strip()
-            insert_review(customer_id, rating, review_comment)
-        elif choice == "5":
-            customer_id = int(input("Enter Customer ID: "))
-            menu_item = input("Enter Menu Item: ").strip()
-            insert_sales_record(customer_id, menu_item)
-        elif choice == "6":
-            print("Exiting...")
-            break
-        else:
-            print("Invalid choice. Please try again.")
-
-
-
 
 # 5. 메인 함수
 if __name__ == "__main__":
-    # 프로그램 실행 시 캐시 초기화
-    menu_cache, cancel_cache = initialize_cache()
 
-    while True:
-        print("\n1. Display Menu\n2. Insert Data\n3. View Orders\n4. Exit")
-        choice = input("Enter your choice: ").strip()
-
-        if choice == "1":
-            # 메뉴 출력
-            display_menu(menu_cache)
-        elif choice == "2":
-            # 주문 데이터 삽입
-            data_insertion_interface()
-        elif choice == "3":
-            # 주문 데이터 조회
-            orders = fetch_orders()
-            if not orders:
-                print("No orders found.")
-            else:
-                print("Order List:")
-                for order in orders:
-                    print(f"Customer ID: {order[0]}, Order ID: {order[1]}, Menu ID: {order[2]}, Quantity: {order[3]}, Cancel ID: {order[4]}")
-        elif choice == "4":
-            print("Exiting...")
-            break
-        else:
-            print("Invalid choice. Please try again.")
+    create_tables()
+    menu_data = {
+        1: {'menu_name': 'Tomato Pasta', 'price': 12000, 'cooking_time': 3},
+        2: {'menu_name': 'Cream Pasta', 'price': 13000, 'cooking_time': 5},
+        3: {'menu_name': 'Vongole Pasta', 'price': 14000, 'cooking_time': 5},
+        4: {'menu_name': 'PePepperoni Pizza', 'price': 15000, 'cooking_time': 4},
+        5: {'menu_name': 'Combination Pizza', 'price': 16000, 'cooking_time': 4},
+        6: {'menu_name': 'Hawaiian Pizza', 'price': 15000, 'cooking_time': 3},
+        7: {'menu_name': 'Tenderloin Steak', 'price': 30000, 'cooking_time': 2},
+        8: {'menu_name': 'Sirloin Steak', 'price': 28000, 'cooking_time': 2},
+        9: {'menu_name': 'T-bone Steak', 'price': 35000, 'cooking_time': 3},
+        10: {'menu_name': 'Coke', 'price': 2000, 'cooking_time': 0},
+        11: {'menu_name': 'Cider', 'price': 2000, 'cooking_time': 0},
+        12: {'menu_name': 'BlueBerry Ade', 'price': 4000, 'cooking_time': 1}
+    }
+    save_menu_data_to_db(menu_data)
+    insert_cancel_reason('단순 변심')
+    insert_cancel_reason('조리 지연')
+    insert_cancel_reason('주문 실수')
+    insert_cancel_reason('기타 사유')
