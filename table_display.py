@@ -8,7 +8,7 @@ from PySide2.QtWidgets import (
 )
 from PySide2.QtCore import QMetaObject, Qt
 import rclpy 
-from database_interface import insert_review_to_db, get_max_customer_id, insert_sales_record, update_order_cancel_id
+from database_interface import insert_review_to_db, get_max_customer_id, insert_sales_record, update_order_cancel_id, insert_null_menu_id
 from rclpy.node import Node
 from std_msgs.msg import Int32MultiArray, Int32
 from std_srvs.srv import Trigger 
@@ -98,6 +98,7 @@ class TableManager(Node):
         """테이블마다 첫 주문 시 고유한 customer_id를 할당"""
         if self.local_customer_id is None:
             self.local_customer_id = self.global_customer_id
+            insert_null_menu_id(self.local_customer_id)
             self.global_customer_id += 1
 
     def publish_order(self, menu_id: int, quantity: int):
@@ -333,6 +334,8 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.Yes:
             QMessageBox.information(self, "결제 완료", "결제가 완료되었습니다.")
             self.clear_tree_widget_2()  # 트리위젯2 초기화
+            self.local_customer_id = None 
+            
         else:
             QMessageBox.information(self, "결제 취소", "결제가 취소되었습니다.")
 
