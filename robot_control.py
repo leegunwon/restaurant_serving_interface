@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
-from std_msgs.msg import String, Bool
+from std_msgs.msg import String
 
 from nav2_msgs.action import NavigateToPose
 from geometry_msgs.msg import PoseStamped, Pose, Quaternion
@@ -22,7 +22,8 @@ class TableNavNode(Node):
             "tableC": (1.5, 1.0)
         }
 
-        self.status_publisher = self.create_publisher(Bool, 'rob_status', 10)
+        # String Publisher: 완료 상태와 테이블 정보 전송
+        self.complete_publisher = self.create_publisher(String, 'completionstatus', 10)
 
         # 로봇 상태: 이동 중인지 아닌지
         self.is_moving = False
@@ -69,8 +70,7 @@ class TableNavNode(Node):
         if table_name not in self.table_positions:
             self.get_logger().warn(f'Unknown table name: {table_name}')
             return
-        
-        self.send_status_message(self.is_moving)
+
         # 테이블 좌표 가져오기
         x, y = self.table_positions[table_name]
 
@@ -150,14 +150,7 @@ class TableNavNode(Node):
 
         finally:
             self.is_moving = False
-            
-    def send_status_message(self, message: str):
-        """상태 메시지 전송"""
-        status_msg = String()
-        status_msg.data = message
-        self.status_publisher.publish(status_msg)
-        self.get_logger().info(f"Status message sent: {message}")
-    
+
     def send_completion_message(self, message: str):
         """완료 메시지 전송"""
         completion_msg = String()
