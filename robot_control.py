@@ -150,6 +150,7 @@ class TableNavNode(Node):
 
         finally:
             self.is_moving = False
+            
     def send_status_message(self, message: str):
         """상태 메시지 전송"""
         status_msg = String()
