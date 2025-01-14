@@ -7,13 +7,13 @@ from PySide2.QtWidgets import (
     QHBoxLayout, QCheckBox, QLabel
 )
 from PySide2.QtCore import QMetaObject, Qt
-import rclpy
+import rclpy 
 from database_interface import insert_review_to_db, get_max_customer_id, insert_sales_record, update_order_cancel_id
 from rclpy.node import Node
 from std_msgs.msg import Int32MultiArray, Int32
 from std_srvs.srv import Trigger 
 from table_display_layout import Ui_MainWindow  # Qt Designer로 변환된 UI 모듈
-
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 
 class TableManager(Node):
     """테이블 타입에 맞춰 단일 퍼블리셔를 생성하는 Node"""
@@ -25,9 +25,19 @@ class TableManager(Node):
         """
         super().__init__('table_manager')
         self.main_window=main_window
-        self.lock = threading.Lock()
         # 토픽 이름을 table_id에 맞춰 결정
         topic_name = f"order{table_id}"
+        
+        # 히나의 토픽의 서브스크라이버의 콜백 함수에서 다른 토픽의 퍼블리시를 발생시키는 구조이며 토픽이 연속되서 전달되는 구조이기 때문에 메세지를 놓치는 경우가 발생함
+        # ReliabilityPolicy.RELIABLE로 설정하였으나 오히려 연속적인 토픽을 빨리 수신하는 것이 중요하여 ReliabilityPolicy.BESTEFFORT로 수신하는 경우에서 메세지를 놓치는 경우가 
+        # 발생하지 않았음
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10  # 버퍼 크기를 10으로 설정
+        )
+        
         self.publisher_ = self.create_publisher(Int32MultiArray, topic_name, 10)
         self.get_logger().info(f"[{table_id}] Created publisher for topic: '{topic_name}'")
 
@@ -47,25 +57,23 @@ class TableManager(Node):
             Int32,
             'OrderId',
             self.order_id_callback,
-            10
+            qos_profile
         )
         self.order_queue = []  # 주문 대기열
         self.order_ids = []    # 주방에서 수신한 order_id
 
     def order_id_callback(self, msg):
         """주방에서 발행한 order_id를 수신"""
-        with self.lock:  # 동시성 문제 방지
-            self.get_logger().info(f"Received order_id: {msg.data}")
-            order_id = msg.data
-            # tree_widget2에서 order_id가 비어 있는 항목 찾기
-            for i in range(self.main_window.tree_widget2.topLevelItemCount()):
-                item = self.main_window.tree_widget2.topLevelItem(i)
-                if item.data(0, Qt.UserRole) is None:  # 아직 order_id가 설정되지 않은 경우
-                    item.setData(0, Qt.UserRole, order_id)  # order_id 저장
-                    self.get_logger().info(f"Assigned order_id {order_id} to item {i}")
-                    return
-
-            self.get_logger().warning("No pending item to assign the order_id.")
+        self.get_logger().info(f"Received order_id: {msg.data}")
+        order_id = msg.data
+        # tree_widget2에서 order_id가 비어 있는 항목 찾기
+        for i in range(self.main_window.tree_widget2.topLevelItemCount()):
+            item = self.main_window.tree_widget2.topLevelItem(i)
+            if item.data(0, Qt.UserRole) is None:  # 아직 order_id가 설정되지 않은 경우
+                item.setData(0, Qt.UserRole, order_id)  # order_id 저장
+                self.get_logger().info(f"Assigned order_id {order_id} to item {i}")
+                return
+        self.get_logger().warning("No pending item to assign the order_id.")
 
 
     def cancel_order_callback(self, msg):
@@ -80,7 +88,6 @@ class TableManager(Node):
             if stored_order_id == order_id_to_delete:  # order_id가 일치하는 경우
                 self.main_window.tree_widget2.takeTopLevelItem(i)  # 항목 제거
                 self.get_logger().info(f"Deleted item with order_id: {order_id_to_delete}")
-                self.main_window.update_total_price()  # 총 금액 업데이트
                 return
 
         # 해당 order_id를 찾지 못한 경우
@@ -103,8 +110,17 @@ class TableManager(Node):
         self.get_logger().info(
             f"Publishing order -> customer_id:{self.local_customer_id}, menu_id:{menu_id}, quantity:{quantity}"
         )
-        self.publisher_.publish(msg)  # None은 아직 매칭되지 않은 order_id
+        self.publisher_.publish(msg)
+        self.order_queue.append((menu_id, quantity, None))  # None은 아직 매칭되지 않은 order_id
         insert_sales_record(self.local_customer_id, menu_id)
+
+    def match_orders_with_ids(self):
+        """주문 항목과 주방의 order_id를 매칭"""
+        for i, order in enumerate(self.order_queue):
+            if order[2] is None and self.order_ids:  # 아직 매칭되지 않은 주문
+                order_id = self.order_ids.pop(0)
+                self.order_queue[i] = (order[0], order[1], order_id)  # order_id 매칭
+                self.get_logger().info(f"Order matched with order_id: {order_id}")
 
 class CancelReasonDialog(QDialog):
     """주문 취소 사유 선택 창"""
@@ -182,7 +198,7 @@ class ReviewDialog(QDialog):
         self.label.setAlignment(Qt.AlignCenter)
 
         self.review_text = QTextEdit()
-        self.review_text.setPlaceholderText("여기에 리뷰를 작성해주세요...")
+        self.review_text.setPlaceholderText("고객님의 소중한 리뷰 작성해주시면 1000원 할인해드립니다.")
         self.review_text.setReadOnly(False)
 
         self.star_label = QLabel("별점을 선택해주세요:")
