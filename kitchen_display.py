@@ -194,7 +194,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.publisher_send_goal.publish(msg)
         self.node.get_logger().info(f'Publishing send goal: "{msg.data}"')
     
-    def publish_message(self, order_id: int):
+    def publish_message_order_id(self, order_id: int):
         """Order ID를 다른 노드에 알릴 때 사용"""
         msg = Int32()
         msg.data = order_id
@@ -249,20 +249,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # temp_order_table에도 order_id를 포함해 보관
         self.temp_order_table[table_name].append([self.order_id, customer_id, menu_id, amounts])
 
-        # 다른 노드에 order_id 전송
-        self.publish_message(self.order_id)
-        
         current_time = datetime.datetime.now()
         # DB에 주문 정보 삽입``
         insert_order(self.order_id, customer_id, menu_id, amounts, current_time)
         # 트리위젯에 표시
         menu_name = self.menu_name_dict[menu_id]
-        
+
         # (*) 트리 아이템 생성 시 order_id 숨겨 저장
         self.add_tree_widget_item(
             tree_widget,
             [menu_name, str(amounts), "주문 대기"], self.order_id
         )
+        self.publish_message_order_id(self.order_id)
         self.order_id += 1
         check_button.setEnabled(True)
         cancel_button.setEnabled(True)
