@@ -46,7 +46,7 @@ def create_tables():
             """
             CREATE TABLE IF NOT EXISTS SalesRecords (
                 customer_id INT NOT NULL,
-                menu_id INT NOT NULL
+                menu_id INT
             );
             """,
             """
@@ -270,6 +270,33 @@ def insert_cancel_reason(reason):
     cursor.execute(query, (reason,))
     connection.commit()
     print(f"취소 사유 추가 완료: {reason}")
+
+def insert_null_menu_id(customer_id):
+    """
+    SalesRecords 테이블에 customer_id와 menu_id=NULL로 데이터를 삽입.
+    
+    :param customer_id: INT, 고객 ID
+    """
+    # MySQL 데이터베이스 연결
+    connection = pymysql.connect(**DB_CONFIG)
+    cursor = connection.cursor()
+    # 데이터 삽입
+    try:
+        cursor.execute(
+            """
+            INSERT INTO SalesRecords (customer_id, menu_id)
+            VALUES (%s, NULL);
+            """,
+            (customer_id,)
+        )
+        connection.commit()
+        print("Record inserted successfully.")
+    except mysql.connector.Error as e:
+        print(f"Error occurred: {e}")
+    finally:
+        # 연결 종료
+        cursor.close()
+        connection.close()
 
 
 # MySQL 유틸리티 함수
